@@ -1,4 +1,4 @@
-# SleuthCPS 2025 Challenge: The Troubled Elevator
+# SleuthCPS 2025 Challenge: Hostage in the Lift
 
 Welcome, investigators! This repository contains all the necessary files for the **SleuthCPS 2025 Final Challenge**.
 
