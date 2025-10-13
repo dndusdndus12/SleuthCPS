@@ -18,6 +18,6 @@ This repository contains the following pieces of evidence:
 
 ## OBJECTIVE
 
-Your goal is to analyze these artifacts to answer the questions provided and ultimately find the final flag. Once you have the flag, submit it via the Google Form provided on the official challenge webpage[https://SleuthCPS.ai].
+Your goal is to analyze these artifacts to answer the questions provided and ultimately find the final flag. Once you have the flag, submit it via the Google Form provided on the official challenge [webpage](https://SleuthCPS.ai).
 
 **Good luck!**
