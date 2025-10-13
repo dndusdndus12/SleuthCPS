@@ -1,4 +1,4 @@
-# SleuthCPS 2025 Challenge: The Troubled Elevator
+# SleuthCPS 2025 Challenge: Hostage in the Lift
 
 Welcome, investigators! This repository contains all the necessary files for the **SleuthCPS 2025 Day 5 - Final Challenge**.
 
@@ -25,6 +25,6 @@ This repository contains the following pieces of evidence:
 
 ## OBJECTIVE
 
-Your goal is to analyze these artifacts to answer the questions provided and ultimately find the final flag. Once you have the flag, submit it via the Google Form provided on the official challenge webpage.
+Your goal is to analyze these artifacts to answer the questions provided and ultimately find the final flag. Once you have the flag, submit it via the Google Form provided on the official challenge [webpage](https://sleuthcps.ai).
 
 **Good luck!**
