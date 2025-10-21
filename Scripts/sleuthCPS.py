@@ -538,17 +538,25 @@ def main():
 
     HELP_TEXT = '''Available commands:
   h|help                       Show this help text
+  
   loadcsv <path>               Load CSV profile and display its contents
+  
   setimg <path>                Set target image dump for analysis
+  
   showcsv                      Print currently loaded CSV entries
+  
   status                       Show current CSV, target image, and generated output files
+  
   list                         List structures (names and known offsets)
+  
   hex <offset> <size> [w=N] [extract]
-                               Show hex dump from absolute offset (offset can be 0x... or decimal). Default width is [w=16]
+                                                            Show hex dump from absolute offset (offset can be 0x... or decimal). Default width is [w=16]
   aa|analyze_abs <name> [w=N] [extract]
                                Analyze named structure using CSV absolute offset and CSV size. Default width is [w=16]
+  
   ar|analyze_rel <name> [w=N] [extract]
                                Analyze named structure by resolving rOffset chain and reading size from 4 bytes before the resolved offset
+
   exit                         Exit the program. Default width is [w=16]
 '''
 
