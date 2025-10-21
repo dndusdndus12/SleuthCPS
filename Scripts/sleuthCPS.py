@@ -44,8 +44,12 @@ class SleuthParser:
             reader = csv.DictReader(f)
             for row in reader:
                 # Strip whitespace from field names
-                clean_row = {k.strip(): v.strip() for k, v in row.items()}
-                self.structures[clean_row['name']] = clean_row
+                clean_row = {k.strip(): (v.strip() if v is not None else '') for k, v in row.items()}
+                orig_name = clean_row.get('name', '')
+                key = orig_name.lower() if orig_name else orig_name
+                # preserve original name in the details dict
+                clean_row['_orig_name'] = orig_name
+                self.structures[key] = clean_row
 
         self.resolved_offsets = {}
         # store sizes discovered when resolving metadata pointers
@@ -56,15 +60,17 @@ class SleuthParser:
         if visited is None:
             visited = set()
 
-        if name in self.resolved_offsets:
-            return self.resolved_offsets[name]
+        # normalize lookup to be case-insensitive
+        lookup = name.lower()
+        if lookup in self.resolved_offsets:
+            return self.resolved_offsets[lookup]
 
         if name in visited:
             raise RecursionError(f"Error: Circular reference detected (e.g., A -> B -> A). Path: {' -> '.join(visited)} -> {name}")
         
         visited.add(name)
 
-        structure = self.structures.get(name)
+        structure = self.structures.get(lookup)
         if not structure:
             raise KeyError(f"Error: Structure named '{name}' not found in the profile.")
 
@@ -72,7 +78,7 @@ class SleuthParser:
         if structure.get('offset'):
             try:
                 offset = int(structure['offset'], 0)
-                self.resolved_offsets[name] = offset
+                self.resolved_offsets[lookup] = offset
                 return offset
             except ValueError:
                 raise ValueError(f"Error: Invalid offset value for '{name}': {structure['offset']}")
@@ -96,13 +102,13 @@ class SleuthParser:
             if meta is not None:
                 data_ptr, size = meta
                 # store resolved data pointer and discovered size
-                self.resolved_offsets[name] = data_ptr
-                self.resolved_sizes[name] = size
+                self.resolved_offsets[lookup] = data_ptr
+                self.resolved_sizes[lookup] = size
                 return data_ptr
 
             # fallback: treat as relative data location
             absolute_offset = parent_offset + r_offset
-            self.resolved_offsets[name] = absolute_offset
+            self.resolved_offsets[lookup] = absolute_offset
             return absolute_offset
         else:
             raise ValueError(f"Error: Structure '{name}' must have either an 'offset' or both 'rOffset' and 'parent' defined.")
@@ -146,7 +152,7 @@ class SleuthParser:
             offset = self.resolved_offsets.get(name)
             offset_str = f"0x{offset:X}" if offset is not None else "N/A"
             size = details.get('size', 'N/A')
-            print(f"{name:<30} {offset_str:<20} {size}")
+            print(f"{name:<30} {offset_str:<20} {size:X}")
 
     def view_structure(self, name):
         """Displays the content of a structure as a hexdump."""
@@ -158,7 +164,7 @@ class SleuthParser:
             raise ValueError(f"Error: Invalid or missing size value for '{name}'.")
         
         data_slice = self.binary_data[offset:offset+size]
-        print(f"--- Contents of '{name}' (Offset: 0x{offset:X}, Size: {size} bytes) ---")
+        print(f"--- Contents of '{name}' (Offset: 0x{offset:X}, Size: {size:X} bytes) ---")
         print(hexdump(data_slice, start_offset=offset))
         print("--- End of data ---")
 
@@ -177,7 +183,7 @@ class SleuthParser:
         data_slice = self.binary_data[offset:offset+size]
         with open(output_file, 'wb') as f:
             f.write(data_slice)
-        print(f"Success: Dumped {size} bytes from '{name}' to '{output_file}'.")
+        print(f"Success: Dumped {size:X} bytes from '{name}' to '{output_file}'.")
 
     def write_resolved_csv(self, output_csv_path):
         """Writes a new CSV file with all absolute offsets filled in."""
@@ -252,9 +258,11 @@ def main():
                     self.structures = {}
                     for row in reader:
                         clean_row = {k.strip(): (v.strip() if v is not None else '') for k, v in row.items()}
-                        name = clean_row.get('name')
-                        if name:
-                            self.structures[name] = clean_row
+                        orig_name = clean_row.get('name', '')
+                        key = orig_name.lower() if orig_name else orig_name
+                        clean_row['_orig_name'] = orig_name
+                        if key:
+                            self.structures[key] = clean_row
                 self.csv_path = path
                 print(f"Loaded CSV profile: {path} ({len(self.structures)} entries)")
                 if print_contents:
@@ -273,7 +281,8 @@ def main():
             print(f"{'name':<20} {'offset':<12} {'size':<8} {'rOffset':<8} {'parent'}")
             print('-' * 60)
             for name, d in self.structures.items():
-                print(f"{name:<20} {d.get('offset',''):<12} {d.get('size',''):<8} {d.get('rOffset',''):<8} {d.get('parent','')}")
+                display_name = d.get('_orig_name', name)
+                print(f"{display_name:<20} {d.get('offset',''):<12} {d.get('size',''):<8} {d.get('rOffset',''):<8} {d.get('parent','')}")
 
         def hexdump(self, data, start_offset=0, width=16):
             lines = []
@@ -293,7 +302,7 @@ def main():
                 print(f"Requested range out of bounds: 0x{offset:X} - 0x{offset+size:X}")
                 return
             data_slice = self.binary_data[offset:offset+size]
-            fname = f"{name or 'unknown'}_{offset}_{size}.img"
+            fname = f"{name or 'unknown'}_0x{offset:X}_0x{size:X}.img"
             try:
                 with open(fname, 'wb') as f:
                     f.write(data_slice)
@@ -315,10 +324,11 @@ def main():
 
         def analyze_abs(self, name, width=16, extract=False):
             try:
-                if name not in self.structures:
+                lookup = name.lower()
+                if lookup not in self.structures:
                     print(f"Structure '{name}' not found in profile.")
                     return
-                details = self.structures[name]
+                details = self.structures[lookup]
                 if not details.get('offset'):
                     print(f"Structure '{name}' has no absolute offset in CSV.")
                     return
@@ -331,31 +341,34 @@ def main():
                     print("No binary loaded.")
                     return
                 if offset < 0 or offset + size > len(self.binary_data):
-                    print(f"[WARNING] The address(offset) is out of range when analyzing '{name}': 0x{offset:X} + {size} bytes.")
+                    display_name = details.get('_orig_name', name)
+                    print(f"[WARNING] The address(offset) is out of range when analyzing '{display_name}': 0x{offset:X} + {size:X} bytes.")
 
                 data_slice = self.binary_data[offset:offset+size]
-                print(f"--- Contents of '{name}' (Offset: 0x{offset:X}, Size: {size} bytes) ---")
+                print(f"--- Contents of '{name}' (Offset: 0x{offset:X}, Size: {size:X} bytes) ---")
                 print(self.hexdump(data_slice, start_offset=offset, width=width))
                 print('--- End of data ---')
                 if extract:
-                    self.dump_slice(offset, size, name=name)
+                    outname = details.get('_orig_name', name)
+                    self.dump_slice(offset, size, name=outname)
             except Exception as e:
                 print(f"Error in analyze_abs('{name}'): {e}")
 
         def _resolve_offset_recursive(self, name, visited=None):
             if visited is None:
                 visited = set()
-            if name in self.resolved_offsets:
-                return self.resolved_offsets[name]
-            if name in visited:
-                raise RecursionError(f"Circular reference detected: {' -> '.join(list(visited) + [name])}")
-            visited.add(name)
-            struct = self.structures.get(name)
+            lookup = name.lower()
+            if lookup in self.resolved_offsets:
+                return self.resolved_offsets[lookup]
+            if lookup in visited:
+                raise RecursionError(f"Circular reference detected: {' -> '.join(list(visited) + [lookup])}")
+            visited.add(lookup)
+            struct = self.structures.get(lookup)
             if not struct:
                 raise KeyError(f"Structure '{name}' not found")
             if struct.get('offset'):
                 off = self.parse_num(struct['offset'])
-                self.resolved_offsets[name] = off
+                self.resolved_offsets[lookup] = off
                 return off
             if struct.get('rOffset') and struct.get('parent'):
                 parent = struct['parent']
@@ -372,12 +385,12 @@ def main():
                 if meta is not None:
                     data_ptr, size = meta
                     # store resolved data pointer and size
-                    self.resolved_offsets[name] = data_ptr
-                    self.resolved_sizes[name] = size
+                    self.resolved_offsets[lookup] = data_ptr
+                    self.resolved_sizes[lookup] = size
                     return data_ptr
                 # fallback: treat as relative data location
                 off = parent_off + r
-                self.resolved_offsets[name] = off
+                self.resolved_offsets[lookup] = off
                 return off
             raise ValueError(f"Structure '{name}' must have either 'offset' or both 'rOffset' and 'parent'.")
 
@@ -463,7 +476,7 @@ def main():
                     csv_size = None
                     csv_offset = None
                 if csv_size is None or csv_size != size or csv_offset is None or csv_offset != absolute:
-                    print(f"Size mismatch or missing for '{name}': CSV={csv_size} Binary={size} -> updating CSV output file.")
+                    print(f"Size mismatch or missing for '{name}': CSV={csv_size:X} Binary={size:X} -> updating CSV output file.")
                     # update CSV file by writing a new CSV with corrected size
                     if self.csv_path:
                         updated_path = f"{self.csv_path}_updated.csv"
