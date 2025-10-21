@@ -550,7 +550,8 @@ def main():
   list                         List structures (names and known offsets)
   
   hex <offset> <size> [w=N] [extract]
-                                                            Show hex dump from absolute offset (offset can be 0x... or decimal). Default width is [w=16]
+                               Show hex dump from absolute offset (offset can be 0x... or decimal). Default width is [w=16]
+                               
   aa|analyze_abs <name> [w=N] [extract]
                                Analyze named structure using CSV absolute offset and CSV size. Default width is [w=16]
   
