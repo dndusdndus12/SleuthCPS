@@ -2,3 +2,5 @@
 *.img
 *.log
 *.csv
+*.lua
+*.BPD
